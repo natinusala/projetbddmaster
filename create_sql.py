@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     API_URL = "https://api.github.com/repos/" + REPO_OWNER + "/" + REPO_REPO
 
-    # Dict ontaining data for each day
+    # Dict containing data for each day
     DATA = {}
     DATA["repo"] = {"owner": REPO_OWNER, "repo": REPO_REPO, "fullname": REPO_OWNER + "/" + REPO_REPO}
     DATA["weeks"] = {}
@@ -42,8 +42,6 @@ if __name__ == "__main__":
     print("Getting data for GitHub repository "
           + REPO_OWNER + "/"
           + REPO_REPO + "...")
-
-    # TODO Check if the repo exists or not
 
     print("Getting repo informations")
 

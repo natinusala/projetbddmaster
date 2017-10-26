@@ -152,7 +152,7 @@ if __name__ == "__main__":
 
             count = opened_count + closed_count
             if count == 0:
-                print("Issue not added, it was probably created more than a year ago (" + str(issue_created_dt) + ")")
+                print("Issue not added, it was probably created more than a year ago or between last sunday and today (" + str(issue_created_dt) + ")")
             else:
                 print("Issue added " + str(count) + " times, " + str(opened_count) + " times as an open issue and " + str(closed_count) + " times as a closed issue")
 

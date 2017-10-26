@@ -110,16 +110,18 @@ if __name__ == "__main__":
     page = 0
 
     while True:  # do-while loop
-        print("Getting page " + str(page))
+        print("Getting page " + str(page+1))
         issues = call_github_api("/issues?page=" + str(page) + "&state=all")
 
         if len(issues) <= 0:
             break
 
-        # TODO Exclude pull requests
-
         for issue in issues:
             print("Processing issue " + str(issue["id"]))
+
+            if "pull_request" in issue:
+                print("Skipping issue because it's a pull request")
+                continue
 
             opened_count = 0
             closed_count = 0
@@ -152,7 +154,7 @@ if __name__ == "__main__":
 
             count = opened_count + closed_count
             if count == 0:
-                print("Issue not added, it was probably created more than a year ago or between last sunday and today (" + str(issue_created_dt) + ")")
+                print("Issue not added, it was probably created more than a year ago or between last sunday and today (created at " + str(issue_created_dt) + ")")
             else:
                 print("Issue added " + str(count) + " times, " + str(opened_count) + " times as an open issue and " + str(closed_count) + " times as a closed issue")
 

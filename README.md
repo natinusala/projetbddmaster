@@ -10,3 +10,5 @@ Donc pour le dépôt libretro/RetroArch, la commande à lancer est `./create_sql
 
 # Dépendances
  - Python 3
+ - `python-dateutil`
+ - `pytz`

@@ -5,6 +5,11 @@ import requests
 from time import sleep
 import json
 from pathlib import Path
+import datetime
+import dateutil.parser
+import pytz
+
+utc = pytz.UTC
 
 API_URL = ""
 REPO_OWNER = ""
@@ -64,7 +69,7 @@ if __name__ == "__main__":
 
     DATA["repo"]["description"] = informations["description"]
     DATA["repo"]["homepage"] = informations["homepage"]
-    DATA["language"] = informations["language"]
+    DATA["repo"]["language"] = informations["language"]
 
     print("Getting commits count...")
 
@@ -75,6 +80,13 @@ if __name__ == "__main__":
         print("Processing week " + str(week_timestamp))
 
         DATA["weeks"][week_timestamp] = {}
+        DATA["weeks"][week_timestamp]["issues"] = {}
+        DATA["weeks"][week_timestamp]["issues"]["open"] = 0
+        DATA["weeks"][week_timestamp]["issues"]["closed"] = 0
+        DATA["weeks"][week_timestamp]["issues"]["total"] = 0
+        DATA["weeks"][week_timestamp]["pull_requests"] = {}
+        DATA["weeks"][week_timestamp]["pull_requests"]["open"] = 0
+        DATA["weeks"][week_timestamp]["pull_requests"]["closed"] = 0
         DATA["weeks"][week_timestamp]["commits"] = {}
         DATA["weeks"][week_timestamp]["commits"]["total"] = week["total"]
 
@@ -91,17 +103,62 @@ if __name__ == "__main__":
             DATA["weeks"][week_ts]["commits"]["additions"] = week_additions
             DATA["weeks"][week_ts]["commits"]["deletions"] = abs(week_deletions)
         else:
-            print("Skipping week " + str(week_ts) + " because it was not present in commits count data")
+            print("Skipping week " + str(week_ts) + " because it is out of range")
 
     print("Getting issues...")
 
-    for week in DATA["weeks"]:
-        issues_opened = call_github_api("/issues?state=opened")
+    page = 0
 
-        page = 1
-        while len(issues_opened) > 0:
-            issues_opened = call_github_api("/issues?page=" + str(page) + "state=opened")
-            page = page + 1
+    while True:  # do-while loop
+        print("Getting page " + str(page))
+        issues = call_github_api("/issues?page=" + str(page) + "&state=all")
+
+        if len(issues) <= 0:
+            break
+
+        # TODO Exclude pull requests
+
+        for issue in issues:
+            print("Processing issue " + str(issue["id"]))
+
+            opened_count = 0
+            closed_count = 0
+
+            for week in DATA["weeks"]:
+                issue_created_dt = dateutil.parser.parse(issue["created_at"])
+                week_dt = utc.localize(datetime.datetime.fromtimestamp(int(week)))
+
+                if issue_created_dt <= week_dt:
+                    reopened = False
+
+                    if issue["state"] == "closed":
+                        closed_at_dt = dateutil.parser.parse(issue["closed_at"])
+                        if (closed_at_dt > week_dt):
+                            print("Issue was not closed yet, reopening it")
+                            issue["state"] = "open"
+                            reopened = True
+
+                    DATA["weeks"][week]["issues"][issue["state"]] = DATA["weeks"][week]["issues"][issue["state"]] + 1
+                    DATA["weeks"][week]["issues"]["total"] = DATA["weeks"][week]["issues"]["total"] + 1
+
+                    if issue["state"] == "open":
+                        opened_count = opened_count + 1
+                    else:
+                        closed_count = closed_count + 1
+
+                    if reopened:
+                        reopened = False
+                        issue["state"] = "closed"
+
+            count = opened_count + closed_count
+            if count == 0:
+                print("Issue not added, it was probably created more than a year ago (" + str(issue_created_dt) + ")")
+            else:
+                print("Issue added " + str(count) + " times, " + str(opened_count) + " times as an open issue and " + str(closed_count) + " times as a closed issue")
+
+        print("Added " + str(len(issue)) + " issues for page " + str(page))
+
+        page = page + 1
 
     print("Writing output...")
 

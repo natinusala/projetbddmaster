@@ -18,13 +18,73 @@ DATA = {}
 OAUTH_TOKEN = ""
 
 
+# All pull requests are issues and not all issues are pull requests
+# and the issues API will not return all pull requests, only those created after a certain date
+# so this function is used for both pull requests and issues
+def populate_issues(endpoint, name, exclude_pr):
+    page = 0
+
+    while True:  # do-while loop
+        print("Getting page " + str(page+1))
+        issues = call_github_api("/" + endpoint + "?page=" + str(page) + "&state=all")
+
+        if len(issues) <= 0:
+            break
+
+        for issue in issues:
+            print("Processing issue " + str(issue["id"]))
+
+            if exclude_pr and "pull_request" in issue:
+                print("Skipping issue because it's a pull request")
+                continue
+
+            opened_count = 0
+            closed_count = 0
+
+            for week in DATA["weeks"]:
+                issue_created_dt = dateutil.parser.parse(issue["created_at"])
+                week_dt = utc.localize(datetime.datetime.fromtimestamp(int(week)))
+
+                if issue_created_dt <= week_dt:
+                    reopened = False
+
+                    if issue["state"] == "closed":
+                        closed_at_dt = dateutil.parser.parse(issue["closed_at"])
+                        if (closed_at_dt > week_dt):
+                            print("Issue was not closed yet, reopening it")
+                            issue["state"] = "open"
+                            reopened = True
+
+                    DATA["weeks"][week][name][issue["state"]] = DATA["weeks"][week][name][issue["state"]] + 1
+                    DATA["weeks"][week][name]["total"] = DATA["weeks"][week][name]["total"] + 1
+
+                    if issue["state"] == "open":
+                        opened_count = opened_count + 1
+                    else:
+                        closed_count = closed_count + 1
+
+                    if reopened:
+                        reopened = False
+                        issue["state"] = "closed"
+
+            count = opened_count + closed_count
+            if count == 0:
+                print("Issue not added, it was probably created more than a year ago or between last sunday and today (created at " + str(issue_created_dt) + ")")
+            else:
+                print("Issue added " + str(count) + " times, " + str(opened_count) + " times as an open issue and " + str(closed_count) + " times as a closed issue")
+
+        print("Added " + str(len(issue)) + " issues for page " + str(page+1))
+
+        page = page + 1
+
+
 def call_github_api(endpoint):
     url = API_URL + endpoint
     print("Calling URL " + url)
     request = requests.get(url, headers={'Authorization': 'token ' + OAUTH_TOKEN})
 
     if request.status_code == 202:
-        print("Data is not available yet, waiting 10s before retrying...")
+        print("Waiting 10s for GitHub to cache the results...")
         sleep(10)
         return call_github_api(endpoint)
 
@@ -59,11 +119,11 @@ if __name__ == "__main__":
     DATA["repo"] = {"owner": REPO_OWNER, "repo": REPO_REPO, "fullname": REPO_OWNER + "/" + REPO_REPO}
     DATA["weeks"] = {}
 
-    print("Getting data for GitHub repository "
+    print("Getting one year of data for GitHub repository "
           + REPO_OWNER + "/"
           + REPO_REPO + "...")
 
-    print("Getting repo informations")
+    print("Getting repo informations...")
 
     informations = call_github_api("")
 
@@ -86,6 +146,7 @@ if __name__ == "__main__":
         DATA["weeks"][week_timestamp]["issues"]["total"] = 0
         DATA["weeks"][week_timestamp]["pull_requests"] = {}
         DATA["weeks"][week_timestamp]["pull_requests"]["open"] = 0
+        DATA["weeks"][week_timestamp]["pull_requests"]["total"] = 0
         DATA["weeks"][week_timestamp]["pull_requests"]["closed"] = 0
         DATA["weeks"][week_timestamp]["commits"] = {}
         DATA["weeks"][week_timestamp]["commits"]["total"] = week["total"]
@@ -105,62 +166,13 @@ if __name__ == "__main__":
         else:
             print("Skipping week " + str(week_ts) + " because it is out of range")
 
-    print("Getting issues...")
+    print("Getting pull request issues...")
 
-    page = 0
+    populate_issues("pulls", "pull_requests", False)
 
-    while True:  # do-while loop
-        print("Getting page " + str(page+1))
-        issues = call_github_api("/issues?page=" + str(page) + "&state=all")
+    print("Getting regular issues...")
 
-        if len(issues) <= 0:
-            break
-
-        for issue in issues:
-            print("Processing issue " + str(issue["id"]))
-
-            if "pull_request" in issue:
-                print("Skipping issue because it's a pull request")
-                continue
-
-            opened_count = 0
-            closed_count = 0
-
-            for week in DATA["weeks"]:
-                issue_created_dt = dateutil.parser.parse(issue["created_at"])
-                week_dt = utc.localize(datetime.datetime.fromtimestamp(int(week)))
-
-                if issue_created_dt <= week_dt:
-                    reopened = False
-
-                    if issue["state"] == "closed":
-                        closed_at_dt = dateutil.parser.parse(issue["closed_at"])
-                        if (closed_at_dt > week_dt):
-                            print("Issue was not closed yet, reopening it")
-                            issue["state"] = "open"
-                            reopened = True
-
-                    DATA["weeks"][week]["issues"][issue["state"]] = DATA["weeks"][week]["issues"][issue["state"]] + 1
-                    DATA["weeks"][week]["issues"]["total"] = DATA["weeks"][week]["issues"]["total"] + 1
-
-                    if issue["state"] == "open":
-                        opened_count = opened_count + 1
-                    else:
-                        closed_count = closed_count + 1
-
-                    if reopened:
-                        reopened = False
-                        issue["state"] = "closed"
-
-            count = opened_count + closed_count
-            if count == 0:
-                print("Issue not added, it was probably created more than a year ago or between last sunday and today (created at " + str(issue_created_dt) + ")")
-            else:
-                print("Issue added " + str(count) + " times, " + str(opened_count) + " times as an open issue and " + str(closed_count) + " times as a closed issue")
-
-        print("Added " + str(len(issue)) + " issues for page " + str(page))
-
-        page = page + 1
+    populate_issues("issues", "issues", True)
 
     print("Writing output...")
 

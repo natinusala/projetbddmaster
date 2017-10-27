@@ -141,7 +141,7 @@ if __name__ == "__main__":
     commit_activity = call_github_api("/stats/commit_activity")
 
     for week in commit_activity:
-        week_timestamp = week["week"]
+        week_timestamp = int(week["week"])
         print("Processing week " + str(week_timestamp))
 
         DATA["weeks"][week_timestamp] = {}

@@ -17,8 +17,6 @@ REPO_REPO = ""
 DATA = {}
 OAUTH_TOKEN = ""
 
-# TODO Ability to process multiple repositories
-
 
 # All pull requests are issues and not all issues are pull requests
 # and the issues API will not return all pull requests, only those created after a certain date

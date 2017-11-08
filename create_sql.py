@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+# Use this script to create a json file from GitHub API data
+
 import sys
 import requests
 from time import sleep

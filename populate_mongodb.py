@@ -46,6 +46,7 @@ if __name__ == "__main__":
           '--db', 'projet_m1',
           '--collection', COLLECTION_WEEKS,
           '--file', JSON_WEEKS,
+          '--mode', 'upsert',
           '--jsonArray'])
 
     os.remove(JSON_WEEKS)
@@ -64,7 +65,7 @@ if __name__ == "__main__":
           '--db', 'projet_m1',
           '--collection', COLLECTION_INFOS,
           '--file', JSON_INFOS,
-          '--jsonArray'])
+          '--mode', 'upsert'])
 
     os.remove(JSON_INFOS)
 

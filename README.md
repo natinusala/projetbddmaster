@@ -8,6 +8,8 @@ Le script `create_sql.py` permet de créer un .sql créant et remplissant la bas
 
 `./create_sql.py owner repo`
 
+Le script `populate_mongodb.py` prend le .json créé par le premier script, et remplit la base de données MongoDB locale avec en utilisant `mongoimport`
+
 Donc pour le dépôt `libretro/RetroArch`, la commande à lancer est `./create_sql.py libretro RetroArch`
 
 # Dépendances

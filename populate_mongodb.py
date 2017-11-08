@@ -51,6 +51,7 @@ if __name__ == "__main__":
     os.remove(JSON_WEEKS)
 
     INFOS = DATA["repo"]
+    INFOS["_id"] = "repo_infos"  # to prevent duplicates
 
     COLLECTION_INFOS = OWNER + '_' + REPO + '_infos'
     JSON_INFOS = COLLECTION_INFOS + '.json'

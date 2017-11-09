@@ -34,7 +34,7 @@ def populate_issues(endpoint, name, exclude_pr):
     page = 0
 
     while True:  # do-while loop
-        debug("Loading page " + str(page+1))
+        debug("     Loading page " + str(page+1))
         issues = call_github_api("/" + endpoint + "?page=" + str(page) + "&state=all")
 
         if len(issues) <= 0:
@@ -42,52 +42,102 @@ def populate_issues(endpoint, name, exclude_pr):
 
         added_issues = 0
         for issue in issues:
-            debug("Processing issue " + str(issue["id"]))
+            debug("         Processing issue " + str(issue["id"]))
 
             if exclude_pr and "pull_request" in issue:
-                debug("Skipping issue because it's a pull request")
+                debug("             Skipping issue because it's a pull request")
                 continue
 
             opened_count = 0
             closed_count = 0
 
-            added_issues = added_issues + 1
+            added_issues += 1
 
             for week in DATA["weeks"]:
                 issue_created_dt = dateutil.parser.parse(issue["created_at"])
+
+                if not exclude_pr and issue["merged_at"] is not None:
+                    issue_merged_dt = dateutil.parser.parse(issue["merged_at"])
+                else:
+                    issue_merged_dt = None
+
                 week_dt = utc.localize(datetime.datetime.fromtimestamp(int(week)))
 
                 if issue_created_dt <= week_dt:
                     reopened = False
+                    unmerged = False
 
                     if issue["state"] == "closed":
                         closed_at_dt = dateutil.parser.parse(issue["closed_at"])
                         if (closed_at_dt > week_dt):
-                            debug("Issue was not closed yet, reopening it")
+                            debug("             Issue was not closed yet, reopening it")
                             issue["state"] = "open"
                             reopened = True
 
-                    DATA["weeks"][week][name][issue["state"]] = DATA["weeks"][week][name][issue["state"]] + 1
-                    DATA["weeks"][week][name]["total"] = DATA["weeks"][week][name]["total"] + 1
+                    if not exclude_pr and issue_merged_dt is not None:
+                        if (issue_merged_dt > week_dt):
+                            debug("             Pull request was not merged yet, unmerging it")
+                            issue_merged_dt = None
+                            unmerged = True
+
+                    user = issue["user"]
+
+                    if user["id"] not in DATA["weeks"][week][name]["users"]:
+                        DATA["weeks"][week][name]["users"][user["id"]] = {}
+                        DATA["weeks"][week][name]["users"][user["id"]]["user"] = {}
+                        DATA["weeks"][week][name]["users"][user["id"]]["user"]["avatar_url"] = user["avatar_url"]
+                        DATA["weeks"][week][name]["users"][user["id"]]["user"]["login"] = user["login"]
+                        DATA["weeks"][week][name]["users"][user["id"]]["user"]["id"] = user["id"]
+                        DATA["weeks"][week][name]["users"][user["id"]]["user"]["html_url"] = user["html_url"]
+                        DATA["weeks"][week][name]["users"][user["id"]]["user"]["is_contributor"] = user["id"] in DATA["contributors"]
+                        DATA["weeks"][week][name]["users"][user["id"]]["total"] = 0
+                        DATA["weeks"][week][name]["users"][user["id"]]["open"] = 0
+                        if not exclude_pr:
+                            DATA["weeks"][week][name]["users"][user["id"]]["closed_merged"] = 0
+                            DATA["weeks"][week][name]["users"][user["id"]]["closed_not_merged"] = 0
+                        else:
+                            DATA["weeks"][week][name]["users"][user["id"]]["closed"] = 0
+
+                    if exclude_pr:
+                        DATA["weeks"][week][name][issue["state"]] += 1
+                        DATA["weeks"][week][name]["users"][user["id"]][issue["state"]] += 1
+                    else:
+                        if issue["state"] == "closed":
+                            if issue_merged_dt is not None:
+                                DATA["weeks"][week][name]["closed_merged"] += 1
+                                DATA["weeks"][week][name]["users"][user["id"]]["closed_merged"] += 1
+                            else:
+                                DATA["weeks"][week][name]["closed_not_merged"] += 1
+                                DATA["weeks"][week][name]["users"][user["id"]]["closed_not_merged"] += 1
+                        else:
+                            DATA["weeks"][week][name][issue["state"]] += 1
+                            DATA["weeks"][week][name]["users"][user["id"]][issue["state"]] += 1
+
+                    DATA["weeks"][week][name]["total"] += 1
+                    DATA["weeks"][week][name]["users"][user["id"]]["total"] += 1
 
                     if issue["state"] == "open":
-                        opened_count = opened_count + 1
+                        opened_count += 1
                     else:
-                        closed_count = closed_count + 1
+                        closed_count += 1
 
                     if reopened:
                         reopened = False
                         issue["state"] = "closed"
 
+                    if unmerged:
+                        unmerged = False
+                        issue_merged_dt = dateutil.parser.parse(issue["merged_at"])
+
             count = opened_count + closed_count
             if count == 0:
-                debug("Issue not added, it is probably out of range or created between last sunday and today (created at " + str(issue_created_dt) + ")")
+                debug("             Issue not added, it is probably out of range or created between last sunday and today (created at " + str(issue_created_dt) + ")")
             else:
-                debug("Issue added " + str(count) + " times, " + str(opened_count) + " times as an open issue and " + str(closed_count) + " times as a closed issue")
+                debug("             Issue added " + str(count) + " times, " + str(opened_count) + " times as an open issue and " + str(closed_count) + " times as a closed issue")
 
-        debug("Added " + str(added_issues) + " issues for page " + str(page+1))
+        debug("         Added " + str(added_issues) + " issues for page " + str(page+1))
 
-        page = page + 1
+        page += 1
 
 
 def call_github_api(endpoint):
@@ -96,7 +146,7 @@ def call_github_api(endpoint):
     request = requests.get(url, headers={'Authorization': 'token ' + OAUTH_TOKEN})
 
     if request.status_code == 202:
-        debug("Waiting 10s for GitHub to cache the results...")
+        print("     Waiting 10s for GitHub to cache the results...")
         sleep(10)
         return call_github_api(endpoint)
 
@@ -157,7 +207,7 @@ if __name__ == "__main__":
         name = contributor["author"]["login"]
         id = contributor["author"]["id"]
 
-        debug("Processing contributor " + name)
+        debug("     Processing contributor " + name)
 
         DATA["contributors"][id] = {}
         DATA["contributors"][id]["avatar_url"] = contributor["author"]["avatar_url"]
@@ -174,18 +224,21 @@ if __name__ == "__main__":
             count = week["c"]
 
             if week_number not in DATA["weeks"]:
-                debug("Preparing week " + str(week_number))
+                debug("         Preparing week " + str(week_number))
 
                 DATA["weeks"][week_number] = {}
                 DATA["weeks"][week_number]["issues"] = {}
+                DATA["weeks"][week_number]["issues"]["users"] = {}
                 DATA["weeks"][week_number]["issues"]["open"] = 0
                 DATA["weeks"][week_number]["issues"]["closed"] = 0
                 DATA["weeks"][week_number]["issues"]["total"] = 0
 
                 DATA["weeks"][week_number]["pull_requests"] = {}
+                DATA["weeks"][week_number]["pull_requests"]["users"] = {}
                 DATA["weeks"][week_number]["pull_requests"]["open"] = 0
                 DATA["weeks"][week_number]["pull_requests"]["total"] = 0
-                DATA["weeks"][week_number]["pull_requests"]["closed"] = 0
+                DATA["weeks"][week_number]["pull_requests"]["closed_merged"] = 0
+                DATA["weeks"][week_number]["pull_requests"]["closed_not_merged"] = 0
 
                 DATA["weeks"][week_number]["commits"] = {}
                 DATA["weeks"][week_number]["commits"]["total"] = 0
@@ -218,14 +271,14 @@ if __name__ == "__main__":
 
     page = 0
     while True:
-        debug("Loading page " + str(page+1))
+        debug("     Loading page " + str(page+1))
         releases = call_github_api("/releases?page=" + str(page))
 
         if len(releases) <= 0:
             break
 
         for release in releases:
-            debug("Processing release " + str(release["tag_name"]) + " (" + str(release["id"]) + ")")
+            debug("         Processing release " + str(release["tag_name"]) + " (" + str(release["id"]) + ")")
 
             count_w = 0
             for week in DATA["weeks"]:
@@ -233,19 +286,19 @@ if __name__ == "__main__":
                 week_dt = utc.localize(datetime.datetime.fromtimestamp(int(week)))
 
                 if release_created_dt < week_dt:
-                    DATA["weeks"][week]["releases"]["count"] = DATA["weeks"][week]["releases"]["count"] + 1
+                    DATA["weeks"][week]["releases"]["count"] += 1
 
                     if release_created_dt > DATA["weeks"][week]["releases"]["latest"]["date"]:
                         DATA["weeks"][week]["releases"]["latest"]["date"] = release_created_dt
                         DATA["weeks"][week]["releases"]["latest"]["tag_name"] = release["tag_name"]
                         DATA["weeks"][week]["releases"]["latest"]["id"] = release["id"]
 
-                    count_w = count_w + 1
+                    count_w += 1
 
-            debug("Release added " + str(count_w) + " times")
+            debug("             Release added " + str(count_w) + " times")
 
-        debug("Added " + str(len(releases)) + " releases for page " + str(page+1))
-        page = page + 1
+        debug("         Added " + str(len(releases)) + " releases for page " + str(page+1))
+        page += 1
 
     print("Getting pull request issues...")
 

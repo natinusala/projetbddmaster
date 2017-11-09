@@ -136,7 +136,7 @@ if __name__ == "__main__":
     DATA["repo"]["homepage"] = informations["homepage"]
     DATA["repo"]["language"] = informations["language"]
 
-    print("Getting commits count...")
+    print("Getting commits count and contributors...")
 
     commit_activity = call_github_api("/stats/commit_activity")
 
@@ -165,6 +165,8 @@ if __name__ == "__main__":
         DATA["weeks"][week_timestamp]["releases"]["latest"]["tag_name"] = ""
         DATA["weeks"][week_timestamp]["releases"]["latest"]["id"] = ""
 
+        DATA["weeks"][week_timestamp]["contributors"] = {}
+
     print("Getting additions and deletions...")
     code_frequency = call_github_api("/stats/code_frequency")
 
@@ -179,6 +181,41 @@ if __name__ == "__main__":
             DATA["weeks"][week_ts]["commits"]["deletions"] = abs(week_deletions)
         else:
             print("Skipping week " + str(week_ts) + " because it is out of range")
+
+    print("Getting contributors and their activity...")
+
+    DATA["contributors"] = {}
+
+    contributors = call_github_api("/stats/contributors")
+
+    for contributor in contributors:
+        name = contributor["author"]["login"]
+        id = contributor["author"]["id"]
+
+        print("Processing contributor " + name)
+
+        DATA["contributors"][id] = {}
+        DATA["contributors"][id]["avatar_url"] = contributor["author"]["avatar_url"]
+        DATA["contributors"][id]["login"] = contributor["author"]["login"]
+        DATA["contributors"][id]["id"] = contributor["author"]["id"]
+        DATA["contributors"][id]["html_url"] = contributor["author"]["html_url"]
+        DATA["contributors"][id]["total_commits"] = contributor["total"]
+
+        for week in contributor["weeks"]:
+            week_number = week["w"]
+
+            additions = week["a"]
+            deletions = week["d"]
+            count = week["c"]
+
+            if week_number not in DATA["weeks"] or count == 0:
+                continue
+
+            DATA["weeks"][week_number]["contributors"][id] = {}
+            DATA["weeks"][week_number]["contributors"][id]["contributor"] = DATA["contributors"][id]
+            DATA["weeks"][week_number]["contributors"][id]["additions"] = additions
+            DATA["weeks"][week_number]["contributors"][id]["deletions"] = deletions
+            DATA["weeks"][week_number]["contributors"][id]["total"] = count
 
     print("Getting releases...")
 

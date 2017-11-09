@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 # Use this script to populate your local mongodb database using mongoimport
-# It will create or complete two collections, owner_repo_weeks and owner_repo_infos in projet_m1 db
+# It will create or complete three collections, owner_repo_weeks, owner_repo_contributors and owner_repo_infos in projet_m1 db
 
 import json
 import sys
@@ -26,6 +26,7 @@ if __name__ == "__main__":
 
     WEEKS = []
     INFOS = []
+    CONTRIBUTORS = []
 
     for week in DATA["weeks"]:
         mongo_week = {}
@@ -34,6 +35,13 @@ if __name__ == "__main__":
         mongo_week["_id"] = week
 
         WEEKS.append(mongo_week)
+
+    for contributor in DATA["contributors"]:
+        mongo_contributor = DATA["contributors"][contributor]
+        mongo_contributor["_id"] = DATA["contributors"][contributor]["id"]
+        del mongo_contributor["id"]  # it's redundant because of _id
+
+        CONTRIBUTORS.append(mongo_contributor)
 
     COLLECTION_WEEKS = OWNER + '_' + REPO + '_weeks'
     JSON_WEEKS = COLLECTION_WEEKS + '.json'
@@ -68,5 +76,21 @@ if __name__ == "__main__":
           '--mode', 'upsert'])
 
     os.remove(JSON_INFOS)
+
+    COLLECTION_CONTRIBUTORS = OWNER + '_' + REPO + '_contributors'
+    JSON_CONTRIBUTORS = COLLECTION_CONTRIBUTORS + '.json'
+
+    f = open(JSON_CONTRIBUTORS, 'w+')
+    f.write(json.dumps(CONTRIBUTORS))
+    f.close()
+
+    call(["mongoimport",
+          '--db', 'projet_m1',
+          '--collection', COLLECTION_CONTRIBUTORS,
+          '--file', JSON_CONTRIBUTORS,
+          '--jsonArray',
+          '--mode', 'upsert'])
+
+    os.remove(JSON_CONTRIBUTORS)
 
     print("Success!")

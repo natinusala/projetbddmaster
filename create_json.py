@@ -267,6 +267,18 @@ if __name__ == "__main__":
             DATA["weeks"][week_number]["contributors"][id]["deletions"] = deletions
             DATA["weeks"][week_number]["contributors"][id]["total"] = count
 
+    print("Cleaning useless weeks...")
+
+    todelete = []
+
+    for week in DATA["weeks"]:
+        if DATA["weeks"][week]["commits"]["total"] == 0:
+            todelete.append(week)
+            debug("  Removing week " + str(week))
+
+    for week in todelete:
+        del DATA["weeks"][week]
+
     print("Getting releases...")
 
     page = 0

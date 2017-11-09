@@ -4,7 +4,7 @@ Projet de BDD Evoluées de M1 Informatique
 # Utilisation
 Créez un fichier `oauth_token.txt` et mettez dedans votre token OAUTH GitHub
 
-Le script `create_sql.py` permet de créer un .sql créant et remplissant la base de données avec les données du dépôt passé en entrée (le traitement peut être long sur les gros dépôts comme RetroArch)
+Le script `create_json.py` permet de créer un .json contenant les données brutes du dépôt donné en entrée (le traitement peut être long sur les gros dépôts comme RetroArch)
 
 `./create_sql.py owner repo`
 

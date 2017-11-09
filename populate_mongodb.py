@@ -31,6 +31,10 @@ if __name__ == "__main__":
     for week in DATA["weeks"]:
         mongo_week = {}
 
+        if DATA["weeks"][week]["commits"]["total"] == 0:
+            # a week with 0 commits is for a uninitialized repo and should not be added yet
+            continue
+
         mongo_week = DATA["weeks"][week]
         mongo_week["_id"] = week
 

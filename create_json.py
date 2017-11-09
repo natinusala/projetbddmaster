@@ -19,6 +19,13 @@ REPO_REPO = ""
 DATA = {}
 OAUTH_TOKEN = ""
 
+DEBUG = False
+
+
+def debug(message):
+    if DEBUG:
+        print(message)
+
 
 # All pull requests are issues and not all issues are pull requests
 # and the issues API will not return all pull requests, only those created after a certain date
@@ -27,7 +34,7 @@ def populate_issues(endpoint, name, exclude_pr):
     page = 0
 
     while True:  # do-while loop
-        print("Loading page " + str(page+1))
+        debug("Loading page " + str(page+1))
         issues = call_github_api("/" + endpoint + "?page=" + str(page) + "&state=all")
 
         if len(issues) <= 0:
@@ -35,10 +42,10 @@ def populate_issues(endpoint, name, exclude_pr):
 
         added_issues = 0
         for issue in issues:
-            print("Processing issue " + str(issue["id"]))
+            debug("Processing issue " + str(issue["id"]))
 
             if exclude_pr and "pull_request" in issue:
-                print("Skipping issue because it's a pull request")
+                debug("Skipping issue because it's a pull request")
                 continue
 
             opened_count = 0
@@ -56,7 +63,7 @@ def populate_issues(endpoint, name, exclude_pr):
                     if issue["state"] == "closed":
                         closed_at_dt = dateutil.parser.parse(issue["closed_at"])
                         if (closed_at_dt > week_dt):
-                            print("Issue was not closed yet, reopening it")
+                            debug("Issue was not closed yet, reopening it")
                             issue["state"] = "open"
                             reopened = True
 
@@ -74,11 +81,11 @@ def populate_issues(endpoint, name, exclude_pr):
 
             count = opened_count + closed_count
             if count == 0:
-                print("Issue not added, it was probably created more than a year ago or between last sunday and today (created at " + str(issue_created_dt) + ")")
+                debug("Issue not added, it is probably out of range or created between last sunday and today (created at " + str(issue_created_dt) + ")")
             else:
-                print("Issue added " + str(count) + " times, " + str(opened_count) + " times as an open issue and " + str(closed_count) + " times as a closed issue")
+                debug("Issue added " + str(count) + " times, " + str(opened_count) + " times as an open issue and " + str(closed_count) + " times as a closed issue")
 
-        print("Added " + str(added_issues) + " issues for page " + str(page+1))
+        debug("Added " + str(added_issues) + " issues for page " + str(page+1))
 
         page = page + 1
 
@@ -89,7 +96,7 @@ def call_github_api(endpoint):
     request = requests.get(url, headers={'Authorization': 'token ' + OAUTH_TOKEN})
 
     if request.status_code == 202:
-        print("Waiting 10s for GitHub to cache the results...")
+        debug("Waiting 10s for GitHub to cache the results...")
         sleep(10)
         return call_github_api(endpoint)
 
@@ -105,8 +112,12 @@ def call_github_api(endpoint):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage : create_sql.py owner repo")
+        print("Usage : create_sql.py owner repo [debug]")
         exit()
+
+    if len(sys.argv) == 4:
+        DEBUG = True
+        debug("Debugging enabled, be prepared for a slow processing")
 
     REPO_OWNER = sys.argv[1]
     REPO_REPO = sys.argv[2]
@@ -124,7 +135,7 @@ if __name__ == "__main__":
     DATA["repo"] = {"owner": REPO_OWNER, "repo": REPO_REPO, "fullname": REPO_OWNER + "/" + REPO_REPO}
     DATA["weeks"] = {}
 
-    print("Getting one year of data for GitHub repository "
+    print("Getting data for GitHub repository "
           + REPO_OWNER + "/"
           + REPO_REPO + "...")
 
@@ -136,53 +147,7 @@ if __name__ == "__main__":
     DATA["repo"]["homepage"] = informations["homepage"]
     DATA["repo"]["language"] = informations["language"]
 
-    print("Getting commits count and contributors...")
-
-    commit_activity = call_github_api("/stats/commit_activity")
-
-    for week in commit_activity:
-        week_timestamp = int(week["week"])
-        print("Processing week " + str(week_timestamp))
-
-        DATA["weeks"][week_timestamp] = {}
-        DATA["weeks"][week_timestamp]["issues"] = {}
-        DATA["weeks"][week_timestamp]["issues"]["open"] = 0
-        DATA["weeks"][week_timestamp]["issues"]["closed"] = 0
-        DATA["weeks"][week_timestamp]["issues"]["total"] = 0
-
-        DATA["weeks"][week_timestamp]["pull_requests"] = {}
-        DATA["weeks"][week_timestamp]["pull_requests"]["open"] = 0
-        DATA["weeks"][week_timestamp]["pull_requests"]["total"] = 0
-        DATA["weeks"][week_timestamp]["pull_requests"]["closed"] = 0
-
-        DATA["weeks"][week_timestamp]["commits"] = {}
-        DATA["weeks"][week_timestamp]["commits"]["total"] = week["total"]
-
-        DATA["weeks"][week_timestamp]["releases"] = {}
-        DATA["weeks"][week_timestamp]["releases"]["count"] = 0
-        DATA["weeks"][week_timestamp]["releases"]["latest"] = {}
-        DATA["weeks"][week_timestamp]["releases"]["latest"]["date"] = utc.localize(datetime.datetime.fromtimestamp(0))
-        DATA["weeks"][week_timestamp]["releases"]["latest"]["tag_name"] = ""
-        DATA["weeks"][week_timestamp]["releases"]["latest"]["id"] = ""
-
-        DATA["weeks"][week_timestamp]["contributors"] = {}
-
-    print("Getting additions and deletions...")
-    code_frequency = call_github_api("/stats/code_frequency")
-
-    for week in code_frequency:
-        week_ts = week[0]
-        week_additions = week[1]
-        week_deletions = week[2]
-
-        if week_ts in DATA["weeks"]:
-            print("Processing week " + str(week_ts))
-            DATA["weeks"][week_ts]["commits"]["additions"] = week_additions
-            DATA["weeks"][week_ts]["commits"]["deletions"] = abs(week_deletions)
-        else:
-            print("Skipping week " + str(week_ts) + " because it is out of range")
-
-    print("Getting contributors and their activity...")
+    print("Getting commits count, code frequency and contributors...")
 
     DATA["contributors"] = {}
 
@@ -192,7 +157,7 @@ if __name__ == "__main__":
         name = contributor["author"]["login"]
         id = contributor["author"]["id"]
 
-        print("Processing contributor " + name)
+        debug("Processing contributor " + name)
 
         DATA["contributors"][id] = {}
         DATA["contributors"][id]["avatar_url"] = contributor["author"]["avatar_url"]
@@ -208,8 +173,40 @@ if __name__ == "__main__":
             deletions = week["d"]
             count = week["c"]
 
+            if week_number not in DATA["weeks"]:
+                debug("Preparing week " + str(week_number))
+
+                DATA["weeks"][week_number] = {}
+                DATA["weeks"][week_number]["issues"] = {}
+                DATA["weeks"][week_number]["issues"]["open"] = 0
+                DATA["weeks"][week_number]["issues"]["closed"] = 0
+                DATA["weeks"][week_number]["issues"]["total"] = 0
+
+                DATA["weeks"][week_number]["pull_requests"] = {}
+                DATA["weeks"][week_number]["pull_requests"]["open"] = 0
+                DATA["weeks"][week_number]["pull_requests"]["total"] = 0
+                DATA["weeks"][week_number]["pull_requests"]["closed"] = 0
+
+                DATA["weeks"][week_number]["commits"] = {}
+                DATA["weeks"][week_number]["commits"]["total"] = 0
+                DATA["weeks"][week_number]["commits"]["additions"] = 0
+                DATA["weeks"][week_number]["commits"]["deletions"] = 0
+
+                DATA["weeks"][week_number]["releases"] = {}
+                DATA["weeks"][week_number]["releases"]["count"] = 0
+                DATA["weeks"][week_number]["releases"]["latest"] = {}
+                DATA["weeks"][week_number]["releases"]["latest"]["date"] = utc.localize(datetime.datetime.fromtimestamp(0))
+                DATA["weeks"][week_number]["releases"]["latest"]["tag_name"] = ""
+                DATA["weeks"][week_number]["releases"]["latest"]["id"] = ""
+
+                DATA["weeks"][week_number]["contributors"] = {}
+
             if week_number not in DATA["weeks"] or count == 0:
                 continue
+
+            DATA["weeks"][week_number]["commits"]["additions"] = DATA["weeks"][week_number]["commits"]["additions"] + additions
+            DATA["weeks"][week_number]["commits"]["deletions"] = DATA["weeks"][week_number]["commits"]["deletions"] + deletions
+            DATA["weeks"][week_number]["commits"]["total"] = DATA["weeks"][week_number]["commits"]["total"] + count
 
             DATA["weeks"][week_number]["contributors"][id] = {}
             DATA["weeks"][week_number]["contributors"][id]["contributor"] = DATA["contributors"][id]
@@ -221,14 +218,14 @@ if __name__ == "__main__":
 
     page = 0
     while True:
-        print("Loading page " + str(page+1))
+        debug("Loading page " + str(page+1))
         releases = call_github_api("/releases?page=" + str(page))
 
         if len(releases) <= 0:
             break
 
         for release in releases:
-            print("Processing release " + str(release["tag_name"]) + " (" + str(release["id"]) + ")")
+            debug("Processing release " + str(release["tag_name"]) + " (" + str(release["id"]) + ")")
 
             count_w = 0
             for week in DATA["weeks"]:
@@ -245,9 +242,9 @@ if __name__ == "__main__":
 
                     count_w = count_w + 1
 
-            print("Release added " + str(count_w) + " times")
+            debug("Release added " + str(count_w) + " times")
 
-        print("Added " + str(len(releases)) + " releases for page " + str(page+1))
+        debug("Added " + str(len(releases)) + " releases for page " + str(page+1))
         page = page + 1
 
     print("Getting pull request issues...")

@@ -16,6 +16,8 @@ db.getCollection("repos_list").find().forEach(function(e)
 
   if (id != undefined)
   {
-    print(" - " + e.owner + "-" + e.repo);
+    list.push(e);
   }
 });
+
+printjson(list);

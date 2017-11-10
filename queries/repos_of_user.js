@@ -12,7 +12,7 @@ var list = []
 db.getCollection("repos_list").find().forEach(function(e)
 {
   var id = db.getCollection(e.owner + '_' + e.repo + '_contributors')
-    .find({"login":login}, {"id":1})[0];
+    .find({"login":login}, {"_id":1})[0];
 
   if (id != undefined)
   {

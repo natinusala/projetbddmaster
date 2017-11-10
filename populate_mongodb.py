@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 # Use this script to populate your local mongodb database using mongoimport
-# It will create or complete three collections, owner_repo_weeks, owner_repo_contributors and owner_repo_infos in projet_m1 db
+# It will create or complete three collections : repos_list, owner_repo_weeks, owner_repo_contributors and owner_repo_infos in projet_m1 db
 
 import json
 import sys
@@ -96,5 +96,24 @@ if __name__ == "__main__":
           '--mode', 'upsert'])
 
     os.remove(JSON_CONTRIBUTORS)
+
+    repo_array = []
+    repo_object = {"_id": OWNER + "_" + REPO, "owner": OWNER, "repo": REPO}
+    repo_array.append(repo_object)
+
+    JSON_REPO = 'repos.json'
+
+    f = open(JSON_REPO, 'w+')
+    f.write(json.dumps(repo_array))
+    f.close()
+
+    call(["mongoimport",
+          '--db', 'projet_m1',
+          '--collection', 'repos_list',
+          '--file', JSON_REPO,
+          '--jsonArray',
+          '--mode', 'upsert'])
+
+    os.remove(JSON_REPO)
 
     print("Success!")

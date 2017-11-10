@@ -3,9 +3,12 @@
 conn = new Mongo();
 db = conn.getDB("projet_m1");
 
-print("Getting most active contributor")
+var owner = "libretro";
+var repo = "Lakka-LibreELEC";
 
-var result = db.getCollection('libretro_RetroArch_contributors')
+print("Getting most active contributor for repo " + repo)
+
+var result = db.getCollection(owner + '_' + repo + '_contributors')
   .find({}, {"total_commits":1, "login":1})
   .limit(1)
   .sort({"total_commits":-1})[0];

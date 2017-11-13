@@ -12,7 +12,7 @@ Si présente, l'option `debug` affiche _tout_ ce qu'il fait dans le terminal. Pr
 
 Le script `populate_mongodb.py` prend le .json créé par le premier script, et remplit la base de données MongoDB locale avec en utilisant `mongoimport`
 
-Donc pour le dépôt `libretro/RetroArch`, la commande à lancer est `./create_sql.py libretro RetroArch`
+Donc pour le dépôt `libretro/RetroArch`, la commande à lancer est `./populate_mongodb..py libretro RetroArch`
 
 # Dépendances
  - Python 3
